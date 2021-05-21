@@ -1,0 +1,21 @@
+?start: (term ";")*
+
+?term: value
+     | "if" term "then" term "else" term  -> if_stmt
+     | "succ" term                        -> succ
+     | "pred" term                        -> pred
+     | "iszero" term                      -> iszero
+     | "(" term ")"
+
+?value: BOOL
+      | nv
+
+?nv: "0"        -> zero
+   | "succ" nv  -> succ
+
+BOOL: "true" 
+    | "false"
+
+
+%import common.WS
+%ignore WS
