@@ -1,0 +1,17 @@
+?start: (command ";")*
+
+?command: term
+        | CNAME "/"   -> bind
+
+?term: CNAME                              -> var
+     | "lambda" CNAME "." term            -> abs
+     | term (term)*                       -> app  // needs to be right associative
+     | "(" term ")"
+
+// ?value: "lambda" CNAME "." term -> abs_val  // unused?
+
+%import common.WS
+%import common.C_COMMENT
+%import common.CNAME
+%ignore WS
+%ignore C_COMMENT
