@@ -1,4 +1,4 @@
-?start: (command ";")*
+start: (command ";")*
 
 ?command: term
         | CNAME "/"   -> bind
