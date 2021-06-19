@@ -1,6 +1,8 @@
-from parser import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, Context, 
-                    FalseNode, IfNode, Node, TrueNode, VarBinding, VarNode, parse
-                )
+from parser import parse
+
+from context import Context
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
+                   IfNode, Node, TrueNode, VarBinding, VarNode)
 
 
 def typeof(node: Node, context: Context):

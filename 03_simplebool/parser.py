@@ -1,134 +1,18 @@
-import abc
-from collections import namedtuple
-from dataclasses import dataclass
 from typing import cast
+
+from context import Context
 from lark import Lark
 from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
+                   IfNode, Node, TrueNode, Ty, VarBinding, VarNode)
 
 with open("grammar.lark") as f:
     grammar = f.read()
 
 
-@dataclass
-class Node(abc.ABC):
-    pass
-
-
-@dataclass
-class TrueNode(Node):
-    pass
-
-
-@dataclass
-class FalseNode(Node):
-    pass
-
-@dataclass
-class VarNode(Node):
-    idx: int
-    ctx_len: int = -1
-
-
-@dataclass
-class AbsNode(Node):
-    orig_name: str
-    ty: "Ty"
-    body: Node
-
-
-@dataclass
-class AppNode(Node):
-    child1: Node
-    child2: Node
-
-
-@dataclass
-class IfNode(Node):
-    cond: Node
-    then: Node
-    else_: Node
-
-
-@dataclass
-class BindNode(Node):
-    name: Token
-    binding: "Binding"
-
-
-@dataclass
-class Ty:
-    pass
-
-
-@dataclass
-class BoolTy(Ty):
-    pass
-
-
-@dataclass
-class ArrowTy(Ty):
-    ty1: Ty
-    ty2: Ty
-
-
-@dataclass
-class Binding:
-    pass
-
-
-@dataclass
-class VarBinding(Binding):
-    ty: Ty
-
-
-_ContextElem = namedtuple("_ContextElem", "name, binding")
-
-class Context:
-
-    def __init__(self) -> None:
-        self.data: list[_ContextElem] = []
-
-    def add_binding(self, name, binding: Binding):
-        self.data.append(_ContextElem(name, binding))
-
-    def find_binding(self, name):
-        for i, binding in enumerate(reversed(self.data)):
-            if binding.name == name:
-                return i, binding
-        raise ValueError
-
-    @property
-    def top(self):
-        """Return most recent binding"""
-        return self.data[-1]
-
-    def get_binding(self, idx):
-        return self.data[~idx]
-
-    def pop_binding(self):
-        self.data.pop()
-
-    def get_name(self, idx):
-        return self.get_binding(idx).name
-
-    def get_type(self, idx):
-        match self.get_binding(idx).binding:
-            case VarBinding(ty):
-                return ty
-            case _: raise ValueError(f"Wrong binding for var {self.get_name(idx)} at {idx}")
-
-    def clone(self):
-        ctx = Context()
-        ctx.data = self.data.copy()
-        return ctx
-
-    def __len__(self):
-        return len(self.data)
-
-
-class TypeConv(Transformer):
+class TypeTransformer(Transformer):
     def bool_ty(self, _):
         return BoolTy()
 
@@ -175,7 +59,7 @@ p = Lark(grammar, propagate_positions=True)
 
 def parse(data: str):
     tree = p.parse(data)
-    tree = TypeConv().transform(tree)
+    tree = TypeTransformer().transform(tree)
     context = Context()
     return [parse_tree(child, context) for child in tree.children]
 
