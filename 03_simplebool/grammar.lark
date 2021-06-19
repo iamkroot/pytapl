@@ -1,7 +1,7 @@
 start: (command ";")*
 
 ?command: term
-        | CNAME "/"                          -> bind
+        | CNAME ":" func_ty                  -> bind
 
 ?term: "if" term "then" term "else" term     -> if_stmt
      | "lambda" CNAME ":" func_ty "." term   -> abs
