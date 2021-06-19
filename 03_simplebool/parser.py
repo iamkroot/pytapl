@@ -83,7 +83,49 @@ class VarBinding(Binding):
     ty: Ty
 
 
-Context = namedtuple("Context", "name, binding")
+_ContextElem = namedtuple("_ContextElem", "name, binding")
+
+class Context:
+
+    def __init__(self) -> None:
+        self.data: list[_ContextElem] = []
+
+    def add_binding(self, name, binding: Binding):
+        self.data.append(_ContextElem(name, binding))
+
+    def find_binding(self, name):
+        for i, binding in enumerate(reversed(self.data)):
+            if binding.name == name:
+                return i, binding
+        raise ValueError
+
+    @property
+    def top(self):
+        """Return most recent binding"""
+        return self.data[-1]
+
+    def get_binding(self, idx):
+        return self.data[~idx]
+
+    def pop_binding(self):
+        self.data.pop()
+
+    def get_name(self, idx):
+        return self.get_binding(idx).name
+
+    def get_type(self, idx):
+        match self.get_binding(idx).binding:
+            case VarBinding(ty):
+                return ty
+            case _: raise ValueError(f"Wrong binding for var {self.get_name(idx)} at {idx}")
+
+    def clone(self):
+        ctx = Context()
+        ctx.data = self.data.copy()
+        return ctx
+
+    def __len__(self):
+        return len(self.data)
 
 
 class TypeConv(Transformer):
@@ -94,14 +136,7 @@ class TypeConv(Transformer):
         return ArrowTy(children[0], children[1])
 
 
-def find_binding(context: list[Context], name: str | Token):
-    for i, binding in enumerate(reversed(context)):
-        if binding.name == name:
-            return i, binding
-    raise ValueError
-
-
-def parse_tree(tree: str | Tree, context: list[Context]) -> Node:
+def parse_tree(tree: str | Tree, context: Context) -> Node:
     match tree:
         case Tree(data="true"):
             return TrueNode()
@@ -110,19 +145,20 @@ def parse_tree(tree: str | Tree, context: list[Context]) -> Node:
         case Tree(data="bind", children=[var_name, ty]):
             var_name = cast(Token, var_name)
             ty = cast(Ty, ty)
-            context.append(Context(var_name, VarBinding(ty)))
-            return BindNode(var_name, context[-1].binding)
+            context.add_binding(var_name, VarBinding(ty))
+            return BindNode(var_name, context.top.binding)
         case Tree(data="abs", children=[name, ty, body]):
             name = cast(Token, name)
             ty = cast(Ty, ty)
-            new_context = [*context, Context(name, VarBinding(ty))]
+            new_context = context.clone()
+            new_context.add_binding(name, VarBinding(ty))
             return AbsNode(name, ty, parse_tree(body, new_context))
         case Tree(data="app", children=[c1, c2]):
             return AppNode(parse_tree(c1, context), parse_tree(c2, context))
         case Tree(data="var", children=[var_name]):
             var_name = cast(Token, var_name)
             try:
-                idx, _ = find_binding(context, var_name)
+                idx, _ = context.find_binding(var_name)
             except ValueError:
                 raise Exception(f"Unbound variable {var_name}")
             return VarNode(idx, len(context))
@@ -140,7 +176,7 @@ p = Lark(grammar, propagate_positions=True)
 def parse(data: str):
     tree = p.parse(data)
     tree = TypeConv().transform(tree)
-    context = []
+    context = Context()
     return [parse_tree(child, context) for child in tree.children]
 
 
