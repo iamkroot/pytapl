@@ -55,15 +55,16 @@ def eval_(node: Node, bindings: list):
         case _: raise NoRuleApplies
 
 
-def pprint_tree(tree: Node, bindings, end=""):
+def pprint_tree(tree: Node, bindings: list, end=""):
     # print(tree)
     match tree:
         case AbsNode(orig_name, body):
             while orig_name in bindings:
                 orig_name += "'"
             print(f"(lambda {orig_name}. ", end="")
-            new_bindings = [orig_name, *bindings]
-            pprint_tree(body, new_bindings)
+            bindings.append(orig_name)
+            pprint_tree(body, bindings)
+            bindings.pop()
             print(")", end="")
         case AppNode(c1, c2):
             print("(", end="")
@@ -74,8 +75,21 @@ def pprint_tree(tree: Node, bindings, end=""):
             if cnt != len(bindings):
                 print("ERROR")
             else:
-                print(bindings[idx], end="")
+                print(bindings[~idx], end="")
     print("", end=end)
+
+
+def run(cmd, bindings):
+    if isinstance(cmd, BindNode):
+        bindings.append(cmd.name)
+        print(cmd.name)
+        return
+    while True:
+        try:
+            cmd = eval_(cmd, bindings)
+        except NoRuleApplies:
+            break
+    pprint_tree(cmd, bindings, end="\n")
 
 
 def main():
@@ -89,20 +103,10 @@ def main():
         (lambda x. lambda x. x);
         lambda x. (lambda y . y x) (x z);
     """
-
-    t = parse(inp)
+    cmds = parse(inp)
     bindings = []
-    for node in t:
-        if isinstance(node, BindNode):
-            bindings.insert(0, node.name)
-            print(node.name)
-            continue
-        while True:
-            try:
-                node = eval_(node, bindings)
-            except NoRuleApplies:
-                break
-        pprint_tree(node, bindings, end="\n")
+    for cmd in cmds:
+        run(cmd, bindings)
 
 
 if __name__ == '__main__':
