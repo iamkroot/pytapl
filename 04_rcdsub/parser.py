@@ -59,16 +59,25 @@ p = Lark(grammar, propagate_positions=True)
 
 def parse(data: str):
     tree = p.parse(data)
+    print(tree.pretty())
+    return []
     tree = TypeTransformer().transform(tree)
     context = Context()
     return [parse_tree(child, context) for child in tree.children]
 
 
 if __name__ == '__main__':
-    t = parse(""" 
-        y: Bool;
-        lambda x:Bool. x;
-        (lambda x:Bool->Bool. if x false then true else false) 
-            (lambda x:Bool. if x then false else true); 
+    t = parse(r""" 
+        y: Top;
+        lambda x:Top. x;
+        
+        (lambda x:Top. x) (lambda x:Top. x);
+        
+        (lambda x:Top->Top. x) (lambda x:Top. x);
+        
+        {x=lambda z:Top.z, y=lambda z:Top.z, w={x1=lambda m:Top.m}}; // nested record
+
+        (lambda r:{x:Top->Top}. r.x r.x) 
+          {x=lambda z:Top.z, y=lambda z:Top.z}; 
         """)
-    print(*t, sep="\n")
+    # print(*t, sep="\n")

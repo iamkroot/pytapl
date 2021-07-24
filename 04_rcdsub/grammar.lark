@@ -3,18 +3,32 @@ start: (command ";")*
 ?command: term
         | CNAME ":" func_ty                  -> bind
 
-?term: "if" term "then" term "else" term     -> if_stmt
+?term: app_term
      | "lambda" CNAME ":" func_ty "." term   -> abs
-     | term (term)*                          -> app  // needs to be right associative
-     | "true"                                -> true
-     | "false"                               -> false
-     | CNAME                                 -> var
-     | "(" term ")"
+
+?path_term: path_term "." CNAME              -> proj
+          | aterm
+
+?app_term: path_term
+         | app_term path_term                -> app
+
+?aterm: "(" term ")"
+      | CNAME                                -> var
+      | "{" rcd_fields "}"                 
+
+rcd_fields: (rcd_field ",")* rcd_field       -> record
+
+rcd_field: CNAME "=" term
 
 ?func_ty: type "->" func_ty                  -> arr_ty 
+        | "{" field_types "}"
         | type
 
-?type: "Bool"                                -> bool_ty
+field_types: (field_ty ",")* field_ty        -> rcd_ty
+
+field_ty: CNAME ":" func_ty
+
+?type: "Top"                                 -> top_ty
      | "(" func_ty ")"      
 
 %import common.WS
