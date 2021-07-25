@@ -100,6 +100,8 @@ if __name__ == '__main__':
         
         (lambda x:Top->Top. x) (lambda x:Top. x);
         
+        if y then (lambda w:Bool.{x=w}.x)y else true;
+        
         {x=lambda z:Top.z, y=lambda z:Top.z, w={x1=lambda m:Top.m}}; // nested record
 
         (lambda r:{x:Top->Top}. r.x r.x) 

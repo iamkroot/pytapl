@@ -3,16 +3,19 @@ start: (command ";")*
 ?command: term
         | CNAME ":" func_ty                  -> bind
 
-?term: app_term
-     | "lambda" CNAME ":" func_ty "." term   -> abs
+?term: "lambda" CNAME ":" func_ty "." term   -> abs
+     | "if" term "then" term "else" term     -> if_stmt
+     | app_term
+
+?app_term: path_term
+         | path_term app_term                -> app
 
 ?path_term: path_term "." CNAME              -> proj
           | aterm
 
-?app_term: path_term
-         | app_term path_term                -> app
-
 ?aterm: "(" term ")"
+      | "true"                               -> true
+      | "false"                              -> false
       | CNAME                                -> var
       | "{" rcd_fields "}"                 
 
@@ -29,6 +32,7 @@ field_types: (field_ty ",")* field_ty        -> rcd_ty
 field_ty: CNAME ":" func_ty
 
 ?type: "Top"                                 -> top_ty
+     | "Bool"                                -> bool_ty
      | "(" func_ty ")"      
 
 %import common.WS

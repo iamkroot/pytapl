@@ -1,5 +1,5 @@
 from parser import parse
-from typing import Callable, cast
+from typing import Callable, Optional, cast
 
 from context import Context
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
@@ -113,16 +113,59 @@ def subtype(tyS: Ty, tyT: Ty) -> bool:
     return False
 
 
+def join(tyS: Ty, tyT: Ty) -> Ty:
+    match (tyS, tyT):
+        case (BoolTy(), BoolTy()):
+            return BoolTy()
+        case (ArrowTy(tyS1, tyS2), ArrowTy(tyT1, tyT2)):
+            m1 = meet(tyS1, tyT1)
+            if m1 is None:
+                return TopTy()
+            j2 = join(tyS2, tyT2)
+            return ArrowTy(m1, j2)
+        case (RecordTy(fieldsS), RecordTy(fieldsT)):
+            labels = set(fieldsS).intersection(fieldsT)
+            fields = {lab: join(fieldsS[lab], fieldsT[lab]) for lab in labels}
+            return RecordTy(fields)
+        case _: return TopTy()
+
+
+def meet(tyS: Ty, tyT: Ty) -> Optional[Ty]:
+    match (tyS, tyT):
+        case (_, TopTy()):
+            return tyS
+        case (TopTy(), _):
+            return tyT
+        case (BoolTy(), BoolTy()):
+            return BoolTy()
+        case (ArrowTy(tyS1, tyS2), ArrowTy(tyT1, tyT2)):
+            m2 = meet(tyS2, tyT2)
+            if m2 is None:
+                return TopTy()
+            j1 = join(tyS1, tyT1)
+            return ArrowTy(j1, m2)
+        case (RecordTy(fieldsS), RecordTy(fieldsT)):
+            fields = fieldsS | fieldsT
+            labels = set(fieldsS).intersection(fieldsT)
+            for lab in labels:
+                m = meet(fieldsS[lab], fieldsT[lab])
+                if m is None:
+                    return None
+                fields[lab] = m
+            return RecordTy(fields)
+
+
 def typeof(node: Node, context: Context) -> Ty:
     match node:
         case TrueNode() | FalseNode(): return BoolTy()
         case IfNode(cond, then, else_):
             if typeof(cond, context) == BoolTy():
-                ret_ty = typeof(then, context)
-                if ret_ty == typeof(else_, context):
-                    return ret_ty
-                else:
-                    raise TypeError("Mismatched types of if-arms")
+                then_ty = typeof(then, context)
+                else_ty = typeof(else_, context)
+                ret_ty = join(then_ty, else_ty)
+                if isinstance(ret_ty, TopTy):
+                    print(f"Warning! Conditional returns Top: {node}")
+                return ret_ty
             else:
                 raise TypeError("If condition should be bool")
         case VarNode(idx, _):
@@ -165,12 +208,13 @@ def run(cmd, context, mode="eval"):
 def main():
     cmds = parse(""" 
         y: Top;
+        z: Bool;
         lambda x:Top. x;
 
         (lambda x:Top. x) (lambda x:Top. x);
 
         (lambda x:Top->Top. x) (lambda x:Top. x);
-        {x=lambda z:Top.z}.x;
+        (lambda a:Bool. if a then (lambda w:Bool.{x=w}.x) else true)true;
         {x=lambda z:Top.z, y=lambda z:Top.z, w={x1=lambda m:Top.m}}.w.x1; // nested record
 
         (lambda r:{x:Top->Top}. r.x r.x) 
@@ -178,7 +222,7 @@ def main():
         """)
     ctx = Context()
     for cmd in cmds:
-        run(cmd, ctx, "eval")
+        run(cmd, ctx, "type")
 
 
 if __name__ == '__main__':
