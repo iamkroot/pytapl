@@ -5,16 +5,29 @@ from lark import Lark
 from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
-                   IfNode, Node, TrueNode, Ty, VarBinding, VarNode)
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, ProjNode,
+                   IfNode, Node, RecordNode, RecordTy, TopTy, TrueNode, Ty, VarBinding, VarNode)
 
 with open("grammar.lark") as f:
     grammar = f.read()
 
 
 class TypeTransformer(Transformer):
+    def top_ty(self, _):
+        return TopTy()
+
     def bool_ty(self, _):
         return BoolTy()
+
+    def rcd_ty(self, fields):
+        field_types = {}
+        for field in fields:
+            match field:
+                case Tree(data="field_ty", children=[label, ty]):
+                    field_types[label] = ty
+                case _ as unknown:
+                    raise Exception(f"Expected field_ty instead of {unknown}")
+        return RecordTy(field_types)
 
     def arr_ty(self, children):
         return ArrowTy(children[0], children[1])
@@ -50,6 +63,20 @@ def parse_tree(tree: str | Tree, context: Context) -> Node:
             return IfNode(parse_tree(cond, context),
                           parse_tree(then, context),
                           parse_tree(else_, context))
+        case Tree(data="record", children=fields):
+            subnodes: dict[Token, Node] = {}
+            for field in fields:
+                match field:
+                    case Tree(data="rcd_field", children=[label, value]):
+                        parsed = parse_tree(value, context)
+                        assert isinstance(label, Token)
+                        subnodes[label] = parsed
+                    case _:
+                        raise Exception("Unmatched", field)
+            return RecordNode(subnodes)
+        case Tree(data="proj", children=[rcd, label]):
+            assert isinstance(label, Token)
+            return ProjNode(parse_tree(rcd, context), label)
 
     raise Exception("Unmatched", tree)
 
@@ -59,8 +86,6 @@ p = Lark(grammar, propagate_positions=True)
 
 def parse(data: str):
     tree = p.parse(data)
-    print(tree.pretty())
-    return []
     tree = TypeTransformer().transform(tree)
     context = Context()
     return [parse_tree(child, context) for child in tree.children]
@@ -80,4 +105,4 @@ if __name__ == '__main__':
         (lambda r:{x:Top->Top}. r.x r.x) 
           {x=lambda z:Top.z, y=lambda z:Top.z}; 
         """)
-    # print(*t, sep="\n")
+    print(*t, sep="\n\n")

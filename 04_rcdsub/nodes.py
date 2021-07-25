@@ -18,10 +18,22 @@ class TrueNode(Node):
 class FalseNode(Node):
     pass
 
+
 @dataclass
 class VarNode(Node):
     idx: int
     ctx_len: int = -1
+
+
+@dataclass
+class RecordNode(Node):
+    fields: dict[Token, Node]
+
+
+@dataclass
+class ProjNode(Node):
+    rcd: Node
+    label: Token
 
 
 @dataclass
@@ -61,9 +73,19 @@ class BoolTy(Ty):
 
 
 @dataclass
+class RecordTy(Ty):
+    fields: dict[Token, Ty]
+
+
+@dataclass
 class ArrowTy(Ty):
     ty1: Ty
     ty2: Ty
+
+
+@dataclass
+class TopTy(Ty):
+    pass
 
 
 @dataclass
