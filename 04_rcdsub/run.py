@@ -3,7 +3,8 @@ from typing import Callable, cast
 
 from context import Context
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
-                   IfNode, Node, TrueNode, VarBinding, VarNode)
+                   IfNode, Node, ProjNode, RecordNode, RecordTy, TopTy, TrueNode, Ty,
+                   VarBinding, VarNode)
 
 
 class NoRuleApplies(Exception):
@@ -28,6 +29,11 @@ def node_map(on_var: Callable[[int, int, int], VarNode], node: Node, c: int):
                           node_map(on_var, else_, c))
         case TrueNode() | FalseNode():
             return node
+        case RecordNode(fields):
+            return RecordNode({lab: node_map(on_var, field, c)
+                               for lab, field in fields.items()})
+        case ProjNode(rcd, lab):
+            return ProjNode(node_map(on_var, rcd, c), lab)
     raise Exception(f"Unreachable {node}")
 
 
@@ -57,10 +63,10 @@ def subst_top(s: Node, node: Node):
 
 
 def is_val(node: Node):
-    return isinstance(node, (AbsNode, TrueNode, FalseNode))
+    return isinstance(node, (AbsNode, TrueNode, FalseNode, RecordNode))
 
 
-def eval_(node: Node, context: Context):
+def eval_(node: Node, context: Context) -> Node:
     match node:
         case AppNode(AbsNode(_, _, body), t2) if is_val(t2):
             return subst_top(t2, body)
@@ -74,6 +80,13 @@ def eval_(node: Node, context: Context):
             return else_
         case IfNode(cond, then, else_):
             return IfNode(eval_(cond, context), then, else_)
+        case ProjNode(RecordNode(fields), label):
+            try:
+                return fields[label]
+            except KeyError:
+                raise Exception(f"No {label=} in {node.rcd}")
+        case ProjNode(t1, label):
+            return ProjNode(eval_(t1, context), label)
     raise NoRuleApplies
 
 
@@ -85,7 +98,22 @@ def eval_node(node: Node, context: Context):
             return node
 
 
-def typeof(node: Node, context: Context):
+def subtype(tyS: Ty, tyT: Ty) -> bool:
+    """Returns True if tyS is a subtype of tyT"""
+    if tyS == tyT:
+        return True
+    match (tyS, tyT):
+        case (_, TopTy()):
+            return True
+        case (RecordTy(fieldsS), RecordTy(fieldsT)):
+            return all(fieldsS.get(lab) == tyT_i for lab, tyT_i in fieldsT.items())
+        case (ArrowTy(tyS1, tyS2), ArrowTy(tyT1, tyT2)):
+            return subtype(tyT1, tyS1) and subtype(tyS2, tyT2)
+
+    return False
+
+
+def typeof(node: Node, context: Context) -> Ty:
     match node:
         case TrueNode() | FalseNode(): return BoolTy()
         case IfNode(cond, then, else_):
@@ -108,11 +136,20 @@ def typeof(node: Node, context: Context):
             ty1, ty2 = typeof(t1, context), typeof(t2, context)
             match ty1:
                 case ArrowTy(ty11, ty12):
-                    if ty11 == ty2:
+                    if subtype(ty2, ty11):
                         return ty12
                     else:
                         raise TypeError("Parameter type mismatch")
                 case _: raise TypeError("First term of abstraction should be arrow type")
+        case RecordNode(fields):
+            return RecordTy({lab: typeof(field, context) for lab, field in fields.items()})
+        case ProjNode(rcd, label):
+            match typeof(rcd, context):
+                case RecordTy(fields):
+                    return fields[label]
+                case _ as unknown:
+                    raise Exception(f"Expected RecordTy instead of {unknown}")
+    raise Exception(f"Unknown node {node}")
 
 
 def run(cmd, context, mode="eval"):
@@ -127,15 +164,21 @@ def run(cmd, context, mode="eval"):
 
 def main():
     cmds = parse(""" 
-        y: Bool;
-        if y then true else false;
-        lambda x:Bool. x;
-        (lambda x:Bool->Bool. if x false then true else false) 
-            (lambda x:Bool. if x then false else true); 
+        y: Top;
+        lambda x:Top. x;
+
+        (lambda x:Top. x) (lambda x:Top. x);
+
+        (lambda x:Top->Top. x) (lambda x:Top. x);
+        {x=lambda z:Top.z}.x;
+        {x=lambda z:Top.z, y=lambda z:Top.z, w={x1=lambda m:Top.m}}.w.x1; // nested record
+
+        (lambda r:{x:Top->Top}. r.x r.x) 
+          {x=lambda z:Top.z, y=lambda z:Top.z};
         """)
     ctx = Context()
     for cmd in cmds:
-        run(cmd, ctx)
+        run(cmd, ctx, "eval")
 
 
 if __name__ == '__main__':
