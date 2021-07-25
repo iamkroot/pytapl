@@ -6,7 +6,8 @@ from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, ProjNode,
-                   IfNode, Node, RecordNode, RecordTy, TopTy, TrueNode, Ty, VarBinding, VarNode)
+                   IfNode, Node, RecordNode, RecordTy, TopTy, BotTy, TrueNode, Ty,
+                   VarBinding, VarNode)
 
 with open("grammar.lark") as f:
     grammar = f.read()
@@ -15,6 +16,9 @@ with open("grammar.lark") as f:
 class TypeTransformer(Transformer):
     def top_ty(self, _):
         return TopTy()
+
+    def bot_ty(self, _):
+        return BotTy()
 
     def bool_ty(self, _):
         return BoolTy()
@@ -99,12 +103,15 @@ if __name__ == '__main__':
         (lambda x:Top. x) (lambda x:Top. x);
         
         (lambda x:Top->Top. x) (lambda x:Top. x);
-        
+
         if y then (lambda w:Bool.{x=w}.x)y else true;
-        
+
         {x=lambda z:Top.z, y=lambda z:Top.z, w={x1=lambda m:Top.m}}; // nested record
 
         (lambda r:{x:Top->Top}. r.x r.x) 
           {x=lambda z:Top.z, y=lambda z:Top.z}; 
+
+        lambda x:Bot. x;
+        lambda x:Bot. x x; 
         """)
     print(*t, sep="\n\n")

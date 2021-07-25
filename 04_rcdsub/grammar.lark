@@ -19,7 +19,7 @@ start: (command ";")*
       | CNAME                                -> var
       | "{" rcd_fields "}"                 
 
-rcd_fields: (rcd_field ",")* rcd_field       -> record
+rcd_fields: (rcd_field ",")* rcd_field?       -> record
 
 rcd_field: CNAME "=" term
 
@@ -27,11 +27,12 @@ rcd_field: CNAME "=" term
         | "{" field_types "}"
         | type
 
-field_types: (field_ty ",")* field_ty        -> rcd_ty
+field_types: (field_ty ",")* field_ty?        -> rcd_ty
 
 field_ty: CNAME ":" func_ty
 
 ?type: "Top"                                 -> top_ty
+     | "Bot"                                 -> bot_ty
      | "Bool"                                -> bool_ty
      | "(" func_ty ")"      
 

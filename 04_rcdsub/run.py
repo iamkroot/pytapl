@@ -1,8 +1,8 @@
 from parser import parse
-from typing import Callable, Optional, cast
+from typing import Callable, cast
 
 from context import Context
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode,
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, BotTy, FalseNode,
                    IfNode, Node, ProjNode, RecordNode, RecordTy, TopTy, TrueNode, Ty,
                    VarBinding, VarNode)
 
@@ -103,6 +103,8 @@ def subtype(tyS: Ty, tyT: Ty) -> bool:
     if tyS == tyT:
         return True
     match (tyS, tyT):
+        case (BotTy(), _):
+            return True
         case (_, TopTy()):
             return True
         case (RecordTy(fieldsS), RecordTy(fieldsT)):
@@ -114,13 +116,15 @@ def subtype(tyS: Ty, tyT: Ty) -> bool:
 
 
 def join(tyS: Ty, tyT: Ty) -> Ty:
+    if subtype(tyS, tyT):
+        return tyT
+    if subtype(tyT, tyS):
+        return tyS
     match (tyS, tyT):
         case (BoolTy(), BoolTy()):
             return BoolTy()
         case (ArrowTy(tyS1, tyS2), ArrowTy(tyT1, tyT2)):
             m1 = meet(tyS1, tyT1)
-            if m1 is None:
-                return TopTy()
             j2 = join(tyS2, tyT2)
             return ArrowTy(m1, j2)
         case (RecordTy(fieldsS), RecordTy(fieldsT)):
@@ -130,7 +134,11 @@ def join(tyS: Ty, tyT: Ty) -> Ty:
         case _: return TopTy()
 
 
-def meet(tyS: Ty, tyT: Ty) -> Optional[Ty]:
+def meet(tyS: Ty, tyT: Ty) -> Ty:
+    if subtype(tyS, tyT):
+        return tyS
+    if subtype(tyT, tyS):
+        return tyT
     match (tyS, tyT):
         case (_, TopTy()):
             return tyS
@@ -149,25 +157,26 @@ def meet(tyS: Ty, tyT: Ty) -> Optional[Ty]:
             labels = set(fieldsS).intersection(fieldsT)
             for lab in labels:
                 m = meet(fieldsS[lab], fieldsT[lab])
-                if m is None:
-                    return None
                 fields[lab] = m
             return RecordTy(fields)
+        case _:
+            return BotTy()
 
 
 def typeof(node: Node, context: Context) -> Ty:
     match node:
         case TrueNode() | FalseNode(): return BoolTy()
         case IfNode(cond, then, else_):
-            if typeof(cond, context) == BoolTy():
-                then_ty = typeof(then, context)
-                else_ty = typeof(else_, context)
-                ret_ty = join(then_ty, else_ty)
-                if isinstance(ret_ty, TopTy):
-                    print(f"Warning! Conditional returns Top: {node}")
-                return ret_ty
-            else:
-                raise TypeError("If condition should be bool")
+            match typeof(cond, context):
+                case BotTy() | BoolTy():
+                    then_ty = typeof(then, context)
+                    else_ty = typeof(else_, context)
+                    ret_ty = join(then_ty, else_ty)
+                    if isinstance(ret_ty, TopTy):
+                        print(f"Warning! Conditional returns Top: {node}")
+                    return ret_ty
+                case _:
+                    raise TypeError("If condition should be bool")
         case VarNode(idx, _):
             return context.get_type(idx)
         case AbsNode(var_name, ty, body):
@@ -178,6 +187,8 @@ def typeof(node: Node, context: Context) -> Ty:
         case AppNode(t1, t2):
             ty1, ty2 = typeof(t1, context), typeof(t2, context)
             match ty1:
+                case BotTy():
+                    return BotTy()
                 case ArrowTy(ty11, ty12):
                     if subtype(ty2, ty11):
                         return ty12
@@ -188,6 +199,8 @@ def typeof(node: Node, context: Context) -> Ty:
             return RecordTy({lab: typeof(field, context) for lab, field in fields.items()})
         case ProjNode(rcd, label):
             match typeof(rcd, context):
+                case BotTy():
+                    return BotTy()
                 case RecordTy(fields):
                     return fields[label]
                 case _ as unknown:
@@ -219,6 +232,9 @@ def main():
 
         (lambda r:{x:Top->Top}. r.x r.x) 
           {x=lambda z:Top.z, y=lambda z:Top.z};
+
+        lambda x:Bot. x;
+        lambda x:Bot. x x; 
         """)
     ctx = Context()
     for cmd in cmds:

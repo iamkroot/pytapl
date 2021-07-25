@@ -89,6 +89,11 @@ class TopTy(Ty):
 
 
 @dataclass
+class BotTy(Ty):
+    pass
+
+
+@dataclass
 class Binding:
     pass
 
