@@ -1,0 +1,39 @@
+start: (command ";")*
+
+?command: term
+        | CNAME ":" func_ty                  -> bind
+
+?term: "lambda" CNAME ":" func_ty "." term   -> abs
+     | "if" term "then" term "else" term     -> if_stmt
+     | app_term
+
+?app_term: "succ" aterm                      -> succ
+         | "pred" aterm                      -> pred
+         | "iszero" aterm                    -> iszero
+         | aterm
+         | app_term aterm                    -> app
+
+?aterm: "(" term ")"
+      | "true"                               -> true
+      | "false"                              -> false
+      | INT                                  -> nat
+      | CNAME                                -> var
+
+?func_ty: type "->" func_ty                  -> arr_ty 
+        | type
+
+?type: "Nat"                                 -> nat_ty
+     | "Bool"                                -> bool_ty
+     | CNAME                                 -> id_ty
+     | "(" func_ty ")"      
+
+%import common.WS
+%import common.C_COMMENT
+%import common.CPP_COMMENT
+%import common.CNAME
+%import common.INT
+%import common.SH_COMMENT
+%ignore WS
+%ignore C_COMMENT
+%ignore CPP_COMMENT
+%ignore SH_COMMENT
