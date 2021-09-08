@@ -24,13 +24,18 @@ start: (command ";")*
 
 ?type: "Nat"                                 -> nat_ty
      | "Bool"                                -> bool_ty
-     | CNAME                                 -> id_ty
+     | ID_TY                                 -> id_ty
      | "(" func_ty ")"      
+
+ID_TY: UCASE_LETTER ("_"|LETTER|DIGIT)*
 
 %import common.WS
 %import common.C_COMMENT
 %import common.CPP_COMMENT
 %import common.CNAME
+%import common.UCASE_LETTER
+%import common.DIGIT
+%import common.LETTER
 %import common.INT
 %import common.SH_COMMENT
 %ignore WS
