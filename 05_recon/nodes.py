@@ -78,12 +78,18 @@ class Ty:
 
 @dataclass
 class BoolTy(Ty):
-    pass
+    def __str__(self) -> str:
+        return "Bool"
+
+    __repr__ = __str__
 
 
 @dataclass
 class NatTy(Ty):
-    pass
+    def __str__(self) -> str:
+        return "Nat"
+
+    __repr__ = __str__
 
 
 @dataclass
@@ -91,10 +97,24 @@ class ArrowTy(Ty):
     ty1: Ty
     ty2: Ty
 
+    def __str__(self):
+        if isinstance(self.ty1, ArrowTy):
+            ty1 = f"({self.ty1})"
+        else:
+            ty1 = f"{self.ty1}"
+        return f"{ty1}→{self.ty2}"
+
+    __repr__ = __str__
+
 
 @dataclass
 class IdTy(Ty):
     name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+    __repr__ = __str__
 
 
 @dataclass

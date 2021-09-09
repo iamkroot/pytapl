@@ -248,9 +248,13 @@ def run(cmd, context, constraints, vargen, mode="eval"):
     elif mode == "eval":
         ty = recon(cmd, context, constraints, vargen)
         print(eval_node(cmd, context))
-        print(ty)
-        print(*constraints, sep="\n", end="\n\n")
-        print(unify(constraints.copy()), end="\n====\n\n")
+        # print(ty)
+        # print(*constraints, sep="\n", end="\n\n")
+        substs = unify(constraints.copy())
+        # print(substs)
+        for subst in substs:
+            ty = subst_in_type(ty, subst)
+        print("Principal type:", ty, end="\n====\n\n")
 
 
 def main():
@@ -266,6 +270,7 @@ def main():
 
         (lambda x:X. lambda y:X->X. y x);
         (lambda x:X->X. x 0) (lambda y:Nat. y);
+        lambda z:ZZ. lambda y:YY. z (y true);
         """)
     ctx = Context()
     constraints = []
