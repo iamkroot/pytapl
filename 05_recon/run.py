@@ -126,6 +126,22 @@ class EqConstraint:
     lhs: Ty
     rhs: Ty
 
+    def __repr__(self) -> str:
+        return f"({self.lhs}=={self.rhs})"
+
+    __str__ = __repr__
+
+
+@dataclass
+class TypeSubst:
+    src: IdTy
+    tgt: Ty
+
+    def __repr__(self) -> str:
+        return f"{self.src.name}->>{self.tgt}"
+
+    __str__ = __repr__
+
 
 def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen: Generator[IdTy, None, None]):
     match node:
@@ -164,6 +180,67 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
     raise Exception("Unreachable")
 
 
+def subst_in_type(ty: Ty, subst: TypeSubst):
+    match ty:
+        case ArrowTy(ty1, ty2):
+            return ArrowTy(subst_in_type(ty1, subst), subst_in_type(ty2, subst))
+        case NatTy() | BoolTy():
+            return ty
+        case IdTy(name):
+            if name == subst.src.name:
+                return subst.tgt
+            else:
+                return ty
+    raise Exception("Unreachable")
+
+
+def subst_in_constr(constraints: list[EqConstraint], subst: TypeSubst):
+    for constr in constraints:
+        constr.lhs = subst_in_type(constr.lhs, subst)
+        constr.rhs = subst_in_type(constr.rhs, subst)
+
+
+def occurs(ty1: IdTy, ty2: Ty) -> bool:
+    if ty1 == ty2:
+        return True
+    match ty2:
+        case ArrowTy(a, b):
+            return occurs(ty1, a) or occurs(ty1, b)
+        case NatTy() | BoolTy():
+            return False
+        case IdTy(name):
+            return name == ty1.name
+    raise Exception("Unreachable")
+
+
+def unify(constraints: list[EqConstraint]):
+    if not constraints:
+        return []
+    constr = constraints.pop()
+    if constr.lhs == constr.rhs:
+        return unify(constraints)
+    match (constr.lhs, constr.rhs):
+        case (IdTy(_), _):
+            assert isinstance(constr.lhs, IdTy)
+            if occurs(constr.lhs, constr.rhs):
+                raise Exception("Circular constraints")
+            subst = TypeSubst(constr.lhs, constr.rhs)
+            subst_in_constr(constraints, subst)
+            return unify(constraints) + [subst]
+        case (_, IdTy(_)):
+            assert isinstance(constr.rhs, IdTy)
+            if occurs(constr.rhs, constr.lhs):
+                raise Exception("Circular constraints")
+            subst = TypeSubst(constr.rhs, constr.lhs)
+            subst_in_constr(constraints, subst)
+            return unify(constraints) + [subst]
+        case (ArrowTy(ty11, ty12), ArrowTy(ty21, ty22)):
+            constraints.append(EqConstraint(ty11, ty21))
+            constraints.append(EqConstraint(ty12, ty22))
+            return unify(constraints)
+    raise Exception(f"Unsolvable constraints: {constr}")
+
+
 def run(cmd, context, constraints, vargen, mode="eval"):
     if isinstance(cmd, BindNode):
         context.add_binding(cmd.name, cmd.binding)
@@ -173,6 +250,7 @@ def run(cmd, context, constraints, vargen, mode="eval"):
         print(eval_node(cmd, context))
         print(ty)
         print(*constraints, sep="\n", end="\n\n")
+        print(unify(constraints.copy()), end="\n====\n\n")
 
 
 def main():
