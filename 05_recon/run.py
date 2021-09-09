@@ -1,9 +1,12 @@
+from dataclasses import dataclass
+from itertools import count
+from typing import Callable, Generator, cast
+
 from parser import parse
-from typing import Callable, cast
 
 from context import Context
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, IfNode,
-                   IsZeroNode, Node, PredNode, SuccNode, TrueNode,
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, IdTy, IfNode,
+                   IsZeroNode, NatTy, Node, PredNode, SuccNode, TrueNode,
                    Ty, VarBinding, VarNode, ZeroNode)
 
 
@@ -113,12 +116,63 @@ def eval_node(node: Node, context: Context):
             return node
 
 
-def run(cmd, context, mode="eval"):
+def uvargen():
+    for n in count():
+        yield IdTy(name=f"?X{n}")
+
+
+@dataclass
+class EqConstraint:
+    lhs: Ty
+    rhs: Ty
+
+
+def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen: Generator[IdTy, None, None]):
+    match node:
+        case VarNode(idx, _):
+            return context.get_type(idx)
+        case AbsNode(varname, ty, body):
+            context.add_binding(varname, VarBinding(ty))
+            ret_ty = recon(body, context, constraints, vargen)
+            context.pop_binding()
+            return ArrowTy(ty, ret_ty)
+        case AppNode(t1, t2):
+            ty1 = recon(t1, context, constraints, vargen)
+            ty2 = recon(t2, context, constraints, vargen)
+            ret_ty = next(vargen)
+            constraints.append(EqConstraint(ty1, ArrowTy(ty2, ret_ty)))
+            return ret_ty
+        case ZeroNode():
+            return NatTy()
+        case SuccNode(body) | PredNode(body):
+            ty = recon(body, context, constraints, vargen)
+            constraints.append(EqConstraint(ty, NatTy()))
+            return NatTy()
+        case IsZeroNode(body):
+            ty = recon(body, context, constraints, vargen)
+            constraints.append(EqConstraint(ty, NatTy()))
+            return BoolTy()
+        case TrueNode() | FalseNode():
+            return BoolTy()
+        case IfNode(cond, then, else_):
+            cond_ty = recon(cond, context, constraints, vargen)
+            then_ty = recon(then, context, constraints, vargen)
+            else_ty = recon(else_, context, constraints, vargen)
+            constraints.append(EqConstraint(cond_ty, BoolTy()))
+            constraints.append(EqConstraint(then_ty, else_ty))
+            return then_ty
+    raise Exception("Unreachable")
+
+
+def run(cmd, context, constraints, vargen, mode="eval"):
     if isinstance(cmd, BindNode):
         context.add_binding(cmd.name, cmd.binding)
         print(cmd.name)
     elif mode == "eval":
+        ty = recon(cmd, context, constraints, vargen)
         print(eval_node(cmd, context))
+        print(ty)
+        print(*constraints, sep="\n", end="\n\n")
 
 
 def main():
@@ -136,8 +190,10 @@ def main():
         (lambda x:X->X. x 0) (lambda y:Nat. y);
         """)
     ctx = Context()
+    constraints = []
+    vargen = uvargen()
     for cmd in cmds:
-        run(cmd, ctx, "eval")
+        run(cmd, ctx, constraints, vargen, "eval")
 
 
 if __name__ == '__main__':

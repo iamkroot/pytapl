@@ -94,7 +94,7 @@ class ArrowTy(Ty):
 
 @dataclass
 class IdTy(Ty):
-    name: Token
+    name: str
 
 
 @dataclass
