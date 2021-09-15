@@ -6,7 +6,7 @@ from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
-                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, Ty,
+                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, TupleNode, TupleTy, Ty,
                    VarBinding, VarNode, ZeroNode)
 
 with open("grammar.lark") as f:
@@ -25,6 +25,9 @@ class TypeTransformer(Transformer):
 
     def arr_ty(self, children):
         return ArrowTy(children[0], children[1])
+
+    def tuple_ty(self, children):
+        return TupleTy(children)
 
 
 def _num_to_church(num: int):
@@ -78,6 +81,8 @@ def parse_tree(tree: str | Tree, context: Context) -> Node:
             return IfNode(parse_tree(cond, context),
                           parse_tree(then, context),
                           parse_tree(else_, context))
+        case Tree(data="tuple", children=fields):
+            return TupleNode(tuple(map(lambda f: parse_tree(f, context), fields)))
         case Tree(data="nat", children=[number]):
             assert isinstance(number, str)
             num = int(number)
@@ -107,16 +112,15 @@ if __name__ == '__main__':
         lambda x:Bool. x;
          (lambda x:Bool->Bool. if x false then true else false) 
            (lambda x:Bool. if x then false else true); 
-
         lambda x:Nat. succ x;
         (lambda x:Nat. succ (succ x)) (succ 0); 
-
         lambda x:A. x;
-
         (lambda x:X. lambda y:X->X. y x);
         (lambda x:X->X. x 0) (lambda y:Nat. y); 
-
+        (1,2,3,4);
         let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2; 
         let a = true in let b = false in a;
+
+        let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in let f5 = lambda y. f4(f4 y) in f5 (lambda z. z);
         """)
     print(*t, sep="\n\n")

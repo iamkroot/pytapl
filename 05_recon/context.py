@@ -7,6 +7,12 @@ class _ContextElem(NamedTuple):
     name: Token
     binding: Binding
 
+    def __str__(self) -> str:
+        if isinstance(self.binding, VarBinding):
+            return f"{self.name}: {self.binding.ty}"
+        else:
+            return self.name
+
 
 class Context:
     def __init__(self) -> None:
@@ -48,3 +54,6 @@ class Context:
 
     def __len__(self):
         return len(self.data)
+
+    def __str__(self) -> str:
+        return "Ctx[" + ", ".join(map(str, self.data)) + "]"

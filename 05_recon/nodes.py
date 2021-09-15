@@ -54,6 +54,11 @@ class IfNode(Node):
 
 
 @dataclass
+class TupleNode(Node):
+    fields: tuple[Node, ...]
+
+
+@dataclass
 class BindNode(Node):
     name: Token
     binding: "Binding"
@@ -121,6 +126,16 @@ class IdTy(Ty):
 
     def __str__(self) -> str:
         return self.name
+
+    __repr__ = __str__
+
+
+@dataclass
+class TupleTy(Ty):
+    types: tuple[Ty, ...]
+
+    def __str__(self) -> str:
+        return "(" + ", ".join(map(str, self.types)) + ")"
 
     __repr__ = __str__
 

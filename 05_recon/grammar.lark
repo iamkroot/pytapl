@@ -7,6 +7,7 @@ start: (command ";")*
      | "let" CNAME "=" term "in" term         -> let
      | "if" term "then" term "else" term      -> if_stmt
      | app_term
+     | "(" term ("," term)+ ")"               -> tuple
 
 ?app_term: "succ" aterm                       -> succ
          | "pred" aterm                       -> pred
@@ -27,6 +28,7 @@ start: (command ";")*
      | "Bool"                                 -> bool_ty
      | ID_TY                                  -> id_ty
      | "(" func_ty ")"      
+     | "(" func_ty ("," func_ty)+ ")"         -> tuple_ty
 
 ID_TY: UCASE_LETTER ("_"|LETTER|DIGIT)*
 

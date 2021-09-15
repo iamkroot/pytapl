@@ -6,7 +6,7 @@ from parser import parse
 
 from context import Context
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
-                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode,
+                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, TupleNode, TupleTy,
                    Ty, VarBinding, VarNode, ZeroNode)
 
 
@@ -32,6 +32,8 @@ def node_map(on_var: Callable[[int, int, int], VarNode], node: Node, c: int):
             return IfNode(node_map(on_var, cond, c),
                           node_map(on_var, then, c),
                           node_map(on_var, else_, c))
+        case TupleNode(fields):
+            return TupleNode(tuple(map(lambda f:node_map(on_var, f, c), fields)))
         case TrueNode() | FalseNode() | ZeroNode():
             return node
         case SuccNode(body) | PredNode(body) | IsZeroNode(body):
@@ -74,7 +76,7 @@ def is_numval(node: Node):
 
 
 def is_val(node: Node):
-    if isinstance(node, (AbsNode, TrueNode, FalseNode)):
+    if isinstance(node, (AbsNode, TrueNode, FalseNode, TupleNode)):
         return True
     if is_numval(node):
         return True
@@ -177,6 +179,8 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
             body_ty = recon(body, context, constraints, vargen)
             context.pop_binding()
             return body_ty
+        case TupleNode(fields):
+            return TupleTy(tuple(map(lambda f: recon(f, context, constraints, vargen), fields)))
         case ZeroNode():
             return NatTy()
         case SuccNode(body) | PredNode(body):
@@ -203,6 +207,8 @@ def subst_in_type(ty: Ty, subst: TypeSubst):
     match ty:
         case ArrowTy(ty1, ty2):
             return ArrowTy(subst_in_type(ty1, subst), subst_in_type(ty2, subst))
+        case TupleTy(types):
+            return TupleTy(tuple(map(lambda f: subst_in_type(f, subst), types)))
         case NatTy() | BoolTy():
             return ty
         case IdTy(name):
@@ -225,6 +231,8 @@ def occurs(ty1: IdTy, ty2: Ty) -> bool:
     match ty2:
         case ArrowTy(a, b):
             return occurs(ty1, a) or occurs(ty1, b)
+        case TupleTy(types):
+            return any(occurs(ty1, ty) for ty in types)
         case NatTy() | BoolTy():
             return False
         case IdTy(name):
@@ -257,6 +265,11 @@ def unify(constraints: list[EqConstraint]):
             constraints.append(EqConstraint(ty11, ty21))
             constraints.append(EqConstraint(ty12, ty22))
             return unify(constraints)
+        case (TupleTy(fields1), TupleTy(fields2)):
+            if len(fields1) != len(fields2):
+                raise Exception("Mismatched TupleTys")
+            for t1, t2 in zip(fields1, fields2):
+                constraints.append(EqConstraint(t1, t2))
     raise Exception(f"Unsolvable constraints: {constr}")
 
 
@@ -271,8 +284,13 @@ def run(cmd, context, constraints, vargen, mode="eval"):
         # print(*constraints, sep="\n", end="\n\n")
         substs = unify(constraints.copy())
         # print(substs)
-        for subst in substs:
-            ty = subst_in_type(ty, subst)
+        prev_ty = None
+        # Is there a better way?
+        while ty != prev_ty:
+            prev_ty = ty
+            for subst in substs:
+                ty = subst_in_type(ty, subst)
+
         print("Principal type:", ty, end="\n====\n\n")
 
 
@@ -292,7 +310,9 @@ def main():
         (lambda x:X->X. x 0) (lambda y:Nat. y);
         lambda z:ZZ. lambda y:YY. z (y true);
         let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2;
-        let a = true in let b = false in a;
+        let a = true in let b = false in if a then a else a;
+        let f0 = lambda x. (x) in let f1 = lambda y. f0(f0 y) in f1 true;
+        let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in f4 (lambda z. z);
         """)
     ctx = Context()
     constraints = []
