@@ -4,6 +4,7 @@ start: (command ";")*
         | CNAME ":" func_ty                   -> bind
 
 ?term: "lambda" CNAME (":" func_ty)? "." term -> abs
+     | "let" CNAME "=" term "in" term         -> let
      | "if" term "then" term "else" term      -> if_stmt
      | app_term
 

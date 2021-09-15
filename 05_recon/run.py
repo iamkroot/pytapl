@@ -6,7 +6,7 @@ from parser import parse
 
 from context import Context
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
-                   IsZeroNode, NatTy, Node, PredNode, SuccNode, TrueNode,
+                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode,
                    Ty, VarBinding, VarNode, ZeroNode)
 
 
@@ -26,6 +26,8 @@ def node_map(on_var: Callable[[int, int, int], VarNode], node: Node, c: int):
             return AbsNode(orig_name, ty, node_map(on_var, body, c + 1))
         case AppNode(t1, t2):
             return AppNode(node_map(on_var, t1, c), node_map(on_var, t2, c))
+        case LetNode(name, init, body):
+            return LetNode(name, node_map(on_var, init, c), node_map(on_var, body, c + 1))
         case IfNode(cond, then, else_):
             return IfNode(node_map(on_var, cond, c),
                           node_map(on_var, then, c),
@@ -87,6 +89,10 @@ def eval_(node: Node, context: Context) -> Node:
             return AppNode(t1, eval_(t2, context))
         case AppNode(t1, t2):
             return AppNode(eval_(t1, context), t2)
+        case LetNode(_, init, body) if is_val(init):
+            return subst_top(init, body)
+        case LetNode(name, init, body):
+            return LetNode(name, eval_(init, context), body)
         case IfNode(TrueNode(), then, else_):
             return then
         case IfNode(FalseNode(), then, else_):
@@ -165,6 +171,12 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
             ret_ty = next(vargen)
             constraints.append(EqConstraint(ty1, ArrowTy(ty2, ret_ty)))
             return ret_ty
+        case LetNode(name, init, body):
+            init_ty = recon(init, context, constraints, vargen)
+            context.add_binding(name, VarBinding(init_ty))
+            body_ty = recon(body, context, constraints, vargen)
+            context.pop_binding()
+            return body_ty
         case ZeroNode():
             return NatTy()
         case SuccNode(body) | PredNode(body):
@@ -253,8 +265,8 @@ def run(cmd, context, constraints, vargen, mode="eval"):
         context.add_binding(cmd.name, cmd.binding)
         print(cmd.name)
     elif mode == "eval":
-        ty = recon(cmd, context, constraints, vargen)
         print(eval_node(cmd, context))
+        ty = recon(cmd, context, constraints, vargen)
         # print(ty)
         # print(*constraints, sep="\n", end="\n\n")
         substs = unify(constraints.copy())
@@ -279,6 +291,8 @@ def main():
         (lambda x:X. lambda y:X->X. y x);
         (lambda x:X->X. x 0) (lambda y:Nat. y);
         lambda z:ZZ. lambda y:YY. z (y true);
+        let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2;
+        let a = true in let b = false in a;
         """)
     ctx = Context()
     constraints = []

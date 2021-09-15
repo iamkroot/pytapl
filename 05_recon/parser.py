@@ -6,7 +6,7 @@ from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
-                   IsZeroNode, NatTy, Node, PredNode, SuccNode, TrueNode, Ty,
+                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, Ty,
                    VarBinding, VarNode, ZeroNode)
 
 with open("grammar.lark") as f:
@@ -56,6 +56,13 @@ def parse_tree(tree: str | Tree, context: Context) -> Node:
             name = cast(Token, name)
             context.add_binding(name, Binding())
             node = AbsNode(name, None, parse_tree(body, context))
+            context.pop_binding()
+            return node
+        case Tree(data="let", children=[name, init, body]):
+            name = cast(str, name)
+            init_node = parse_tree(init, context)
+            context.add_binding(name, Binding())
+            node = LetNode(name, init_node, parse_tree(body, context))
             context.pop_binding()
             return node
         case Tree(data="app", children=[c1, c2]):
@@ -108,5 +115,8 @@ if __name__ == '__main__':
 
         (lambda x:X. lambda y:X->X. y x);
         (lambda x:X->X. x 0) (lambda y:Nat. y); 
+
+        let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2; 
+        let a = true in let b = false in a;
         """)
     print(*t, sep="\n\n")

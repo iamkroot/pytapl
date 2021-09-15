@@ -40,6 +40,13 @@ class AppNode(Node):
 
 
 @dataclass
+class LetNode(Node):
+    varname: str
+    init: Node
+    body: Node
+
+
+@dataclass
 class IfNode(Node):
     cond: Node
     then: Node
