@@ -5,7 +5,7 @@ from typing import Callable, Generator, cast
 from parser import parse
 
 from context import Context
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, IdTy, IfNode,
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
                    IsZeroNode, NatTy, Node, PredNode, SuccNode, TrueNode,
                    Ty, VarBinding, VarNode, ZeroNode)
 
@@ -147,7 +147,14 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
     match node:
         case VarNode(idx, _):
             return context.get_type(idx)
+        case AbsNode(varname, None, body):
+            fresh_ty = next(vargen)
+            context.add_binding(varname, VarBinding(fresh_ty))
+            ret_ty = recon(body, context, constraints, vargen)
+            context.pop_binding()
+            return ArrowTy(fresh_ty, ret_ty)
         case AbsNode(varname, ty, body):
+            assert ty is not None  # keep pyright happy
             context.add_binding(varname, VarBinding(ty))
             ret_ty = recon(body, context, constraints, vargen)
             context.pop_binding()
@@ -259,6 +266,7 @@ def run(cmd, context, constraints, vargen, mode="eval"):
 
 def main():
     cmds = parse("""
+        (lambda a.(a))(true);
         lambda x:Bool. x;
          (lambda x:Bool->Bool. if x false then true else false) 
            (lambda x:Bool. if x then false else true); 

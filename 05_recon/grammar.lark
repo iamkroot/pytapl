@@ -1,30 +1,30 @@
 start: (command ";")*
 
 ?command: term
-        | CNAME ":" func_ty                  -> bind
+        | CNAME ":" func_ty                   -> bind
 
-?term: "lambda" CNAME ":" func_ty "." term   -> abs
-     | "if" term "then" term "else" term     -> if_stmt
+?term: "lambda" CNAME (":" func_ty)? "." term -> abs
+     | "if" term "then" term "else" term      -> if_stmt
      | app_term
 
-?app_term: "succ" aterm                      -> succ
-         | "pred" aterm                      -> pred
-         | "iszero" aterm                    -> iszero
+?app_term: "succ" aterm                       -> succ
+         | "pred" aterm                       -> pred
+         | "iszero" aterm                     -> iszero
          | aterm
-         | app_term aterm                    -> app
+         | app_term aterm                     -> app
 
 ?aterm: "(" term ")"
-      | "true"                               -> true
-      | "false"                              -> false
-      | INT                                  -> nat
-      | CNAME                                -> var
+      | "true"                                -> true
+      | "false"                               -> false
+      | INT                                   -> nat
+      | CNAME                                 -> var
 
-?func_ty: type "->" func_ty                  -> arr_ty 
+?func_ty: type "->" func_ty                   -> arr_ty 
         | type
 
-?type: "Nat"                                 -> nat_ty
-     | "Bool"                                -> bool_ty
-     | ID_TY                                 -> id_ty
+?type: "Nat"                                  -> nat_ty
+     | "Bool"                                 -> bool_ty
+     | ID_TY                                  -> id_ty
      | "(" func_ty ")"      
 
 ID_TY: UCASE_LETTER ("_"|LETTER|DIGIT)*

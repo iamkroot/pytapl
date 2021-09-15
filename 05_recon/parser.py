@@ -5,7 +5,7 @@ from lark import Lark
 from lark.lexer import Token
 from lark.tree import Tree
 from lark.visitors import Transformer
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, BoolTy, FalseNode, IdTy, IfNode,
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
                    IsZeroNode, NatTy, Node, PredNode, SuccNode, TrueNode, Ty,
                    VarBinding, VarNode, ZeroNode)
 
@@ -48,9 +48,16 @@ def parse_tree(tree: str | Tree, context: Context) -> Node:
         case Tree(data="abs", children=[name, ty, body]):
             name = cast(Token, name)
             ty = cast(Ty, ty)
-            new_context = context.clone()
-            new_context.add_binding(name, VarBinding(ty))
-            return AbsNode(name, ty, parse_tree(body, new_context))
+            context.add_binding(name, VarBinding(ty))
+            node = AbsNode(name, ty, parse_tree(body, context))
+            context.pop_binding()
+            return node
+        case Tree(data="abs", children=[name, body]):  # no type
+            name = cast(Token, name)
+            context.add_binding(name, Binding())
+            node = AbsNode(name, None, parse_tree(body, context))
+            context.pop_binding()
+            return node
         case Tree(data="app", children=[c1, c2]):
             return AppNode(parse_tree(c1, context), parse_tree(c2, context))
         case Tree(data="var", children=[var_name]):
@@ -89,6 +96,7 @@ def parse(data: str):
 
 if __name__ == '__main__':
     t = parse(r""" 
+        lambda a.a;
         lambda x:Bool. x;
          (lambda x:Bool->Bool. if x false then true else false) 
            (lambda x:Bool. if x then false else true); 
