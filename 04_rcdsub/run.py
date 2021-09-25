@@ -63,7 +63,11 @@ def subst_top(s: Node, node: Node):
 
 
 def is_val(node: Node):
-    return isinstance(node, (AbsNode, TrueNode, FalseNode, RecordNode))
+    if isinstance(node, (AbsNode, TrueNode, FalseNode)):
+        return True
+    if isinstance(node, RecordNode):
+        return all(is_val(field) for field in node.fields.values())
+    return False
 
 
 def eval_(node: Node, context: Context) -> Node:
