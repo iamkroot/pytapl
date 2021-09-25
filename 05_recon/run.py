@@ -173,6 +173,8 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
             ret_ty = next(vargen)
             constraints.append(EqConstraint(ty1, ArrowTy(ty2, ret_ty)))
             return ret_ty
+        case LetNode(name, init, body) if is_val(init):
+            return recon(subst_top(init, body), context, constraints, vargen)
         case LetNode(name, init, body):
             init_ty = recon(init, context, constraints, vargen)
             context.add_binding(name, VarBinding(init_ty))
@@ -311,8 +313,8 @@ def main():
         lambda z:ZZ. lambda y:YY. z (y true);
         let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2;
         let a = true in let b = false in if a then a else a;
-        let f0 = lambda x. (x) in let f1 = lambda y. f0(f0 y) in f1 true;
-        let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in f4 (lambda z. z);
+        let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in f1 true;
+        # let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in f4 (lambda z. z);
         """)
     ctx = Context()
     constraints = []
