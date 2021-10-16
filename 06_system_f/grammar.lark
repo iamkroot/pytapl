@@ -1,34 +1,37 @@
 start: (command ";")*
 
 ?command: term
-        | VARNAME ":" func_ty                   -> bind
+        | VARNAME ":" func_ty                                -> bind
 
-?term: "lambda" VARNAME (":" func_ty)? "." term -> abs
-     | "let" VARNAME "=" term "in" term         -> let
-     | "if" term "then" term "else" term        -> if_stmt
-     | "lambda" TYPENAME "." term               -> type_abs
+?term: "lambda" VARNAME (":" func_ty)? "." term              -> abs
+     | "let" VARNAME "=" term "in" term                      -> let
+     | "if" term "then" term "else" term                     -> if_stmt
+     | "lambda" TYPENAME "." term                            -> type_abs
+     | "let" "{" TYPENAME "," VARNAME "}" "=" term "in" term -> exis_unpack
      | app_term
 
-?app_term: "succ" aterm                         -> succ
-         | "pred" aterm                         -> pred
-         | "iszero" aterm                       -> iszero
-         | term "[" type "]"                    -> type_app
+?app_term: "succ" aterm                                      -> succ
+         | "pred" aterm                                      -> pred
+         | "iszero" aterm                                    -> iszero
+         | term "[" type "]"                                 -> type_app
+         | "{" "*" type "," term "}" "as" type               -> exis_pack
          | aterm
-         | app_term aterm                       -> app
+         | app_term aterm                                    -> app
 
 ?aterm: "(" term ")"
-      | "true"                                  -> true
-      | "false"                                 -> false
-      | INT                                     -> nat
-      | VARNAME                                 -> var
+      | "true"                                               -> true
+      | "false"                                              -> false
+      | INT                                                  -> nat
+      | VARNAME                                              -> var
 
-?func_ty: type "->" func_ty                     -> arr_ty 
+?func_ty: type "->" func_ty                                  -> arr_ty 
         | type
 
-?type: "Nat"                                    -> nat_ty
-     | "Bool"                                   -> bool_ty
-     | "All" TYPENAME "." type                  -> univ_ty
-     | TYPENAME                                 -> ty_var
+?type: "Nat"                                                 -> nat_ty
+     | "Bool"                                                -> bool_ty
+     | "All" TYPENAME "." type                               -> univ_ty
+     | "{" "Some" TYPENAME "," type "}"                      -> exis_ty
+     | TYPENAME                                              -> ty_var
      | "(" func_ty ")"      
 
 TYPENAME: UCASE_LETTER ("_"|LETTER|DIGIT)*
