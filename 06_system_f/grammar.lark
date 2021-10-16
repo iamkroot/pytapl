@@ -1,0 +1,50 @@
+start: (command ";")*
+
+?command: term
+        | VARNAME ":" func_ty                   -> bind
+
+?term: "lambda" VARNAME (":" func_ty)? "." term -> abs
+     | "let" VARNAME "=" term "in" term         -> let
+     | "if" term "then" term "else" term        -> if_stmt
+     | "lambda" TYPENAME "." term               -> type_abs
+     | app_term
+
+?app_term: "succ" aterm                         -> succ
+         | "pred" aterm                         -> pred
+         | "iszero" aterm                       -> iszero
+         | term "[" type "]"                    -> type_app
+         | aterm
+         | app_term aterm                       -> app
+
+?aterm: "(" term ")"
+      | "true"                                  -> true
+      | "false"                                 -> false
+      | INT                                     -> nat
+      | VARNAME                                 -> var
+
+?func_ty: type "->" func_ty                     -> arr_ty 
+        | type
+
+?type: "Nat"                                    -> nat_ty
+     | "Bool"                                   -> bool_ty
+     | "All" TYPENAME "." type                  -> univ_ty
+     | TYPENAME                                 -> ty_var
+     | "(" func_ty ")"      
+
+TYPENAME: UCASE_LETTER ("_"|LETTER|DIGIT)*
+VARNAME: LCASE_LETTER ("_"|LETTER|DIGIT)*
+
+%import common.WS
+%import common.C_COMMENT
+%import common.CPP_COMMENT
+%import common.CNAME
+%import common.UCASE_LETTER
+%import common.LCASE_LETTER
+%import common.DIGIT
+%import common.LETTER
+%import common.INT
+%import common.SH_COMMENT
+%ignore WS
+%ignore C_COMMENT
+%ignore CPP_COMMENT
+%ignore SH_COMMENT
