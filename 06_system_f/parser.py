@@ -132,7 +132,6 @@ def parse(data: str):
 
 if __name__ == '__main__':
     t = parse(""" 
-        lambda a.a;
         lambda x:Bool. x;
          (lambda x:Bool->Bool. if x false then true else false) 
            (lambda x:Bool. if x then false else true); 
@@ -140,5 +139,6 @@ if __name__ == '__main__':
         (lambda x:Nat. succ (succ x)) (succ 0); 
         lambda a: All X. All Y.X->X.a;
         lambda X.lambda x:X->X->(All Y.Y)->X.x;
+        let {X,x}=({*Nat,0} as {Some X,X}) in x;
         """)
     print(*t, sep="\n\n")
