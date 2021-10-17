@@ -1,10 +1,9 @@
 from typing import NamedTuple
-from lark.lexer import Token
 from nodes import Binding, VarBinding
-
+from contextlib import contextmanager
 
 class _ContextElem(NamedTuple):
-    name: Token
+    name: str
     binding: Binding
 
     def __str__(self) -> str:
@@ -23,10 +22,10 @@ class Context:
         ctx.data = self.data.copy()
         return ctx
 
-    def add_binding(self, name, binding: Binding):
+    def add_binding(self, name: str, binding: Binding):
         self.data.append(_ContextElem(name, binding))
 
-    def find_binding(self, name):
+    def find_binding(self, name: str):
         for i, binding in enumerate(reversed(self.data)):
             if binding.name == name:
                 return i, binding
@@ -57,3 +56,10 @@ class Context:
 
     def __str__(self) -> str:
         return "Ctx[" + ", ".join(map(str, self.data)) + "]"
+
+    @contextmanager
+    def scoped_add(self, name: str, binding: Binding):
+        """Add binding for the scope of the `with` block"""
+        self.add_binding(name, binding)
+        yield
+        self.pop_binding()

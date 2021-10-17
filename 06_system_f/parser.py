@@ -28,15 +28,13 @@ def parse_type(tree: str | Tree, context: Context) -> Ty:
             return ArrowTy(parse_type(ty1, context), parse_type(ty2, context))
         case Tree(data="univ_ty", children=[name, body]):
             assert isinstance(name, Token)
-            context.add_binding(name, TyVarBinding())
-            ty = UnivTy(name, parse_type(body, context))
-            context.pop_binding()
+            with context.scoped_add(name, TyVarBinding()):
+                ty = UnivTy(name, parse_type(body, context))
             return ty
         case Tree(data="exis_ty", children=[name, body]):
             assert isinstance(name, Token)
-            context.add_binding(name, TyVarBinding())
-            ty = ExisTy(name, parse_type(body, context))
-            context.pop_binding()
+            with context.scoped_add(name, TyVarBinding()):
+                ty = ExisTy(name, parse_type(body, context))
             return ty
         case Tree(data="ty_var", children=[name]):
             assert isinstance(name, Token)
@@ -62,16 +60,14 @@ def parse_node(tree: str | Tree, context: Context) -> Node:
         case Tree(data="abs", children=[name, ty, body]):
             assert isinstance(name, Token)
             ty = parse_type(ty, context)
-            context.add_binding(name, VarBinding(ty))
-            node = AbsNode(name, ty, parse_node(body, context))
-            context.pop_binding()
+            with context.scoped_add(name, VarBinding(ty)):
+                node = AbsNode(name, ty, parse_node(body, context))
             return node
         case Tree(data="let", children=[name, init, body]):
             assert isinstance(name, Token)
             init_node = parse_node(init, context)
-            context.add_binding(name, Binding())
-            node = LetNode(name, init_node, parse_node(body, context))
-            context.pop_binding()
+            with context.scoped_add(name, Binding()):
+                node = LetNode(name, init_node, parse_node(body, context))
             return node
         case Tree(data="app", children=[c1, c2]):
             return AppNode(parse_node(c1, context), parse_node(c2, context))
@@ -84,9 +80,8 @@ def parse_node(tree: str | Tree, context: Context) -> Node:
             return VarNode(idx, len(context))
         case Tree(data="type_abs", children=[typename, body]):
             assert isinstance(typename, Token)
-            context.add_binding(typename, TyVarBinding())
-            node = TypeAbsNode(typename, parse_node(body, context))
-            context.pop_binding()
+            with context.scoped_add(typename, TyVarBinding()):
+                node = TypeAbsNode(typename, parse_node(body, context))
             return node
         case Tree(data="type_app", children=[body, ty]):
             return TypeAppNode(parse_node(body, context), parse_type(ty, context))
@@ -98,11 +93,10 @@ def parse_node(tree: str | Tree, context: Context) -> Node:
             assert isinstance(tyname, Token)
             assert isinstance(varname, Token)
             init_node = parse_node(init, context)
-            context.add_binding(tyname, TyVarBinding())
-            context.add_binding(varname, Binding())
-            node = ExisUnpackNode(tyname, varname, init_node, parse_node(body, context))
-            context.pop_binding()
-            context.pop_binding()
+            
+            with context.scoped_add(tyname, TyVarBinding()),\
+                 context.scoped_add(varname, Binding()):
+                node = ExisUnpackNode(tyname, varname, init_node, parse_node(body, context))
             return node
         case Tree(data="if_stmt", children=[cond, then, else_]):
             return IfNode(parse_node(cond, context),

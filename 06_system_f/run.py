@@ -226,9 +226,8 @@ def typeof(node: Node, context: Context):
         case VarNode(idx, _):
             return context.get_type(idx)
         case AbsNode(var_name, ty, body):
-            context.add_binding(var_name, VarBinding(ty))
-            ret_ty = typeof(body, context)
-            context.pop_binding()
+            with context.scoped_add(var_name, VarBinding(ty)):
+                ret_ty = typeof(body, context)
             return ArrowTy(ty, ret_ty)
         case AppNode(t1, t2):
             ty1, ty2 = typeof(t1, context), typeof(t2, context)
@@ -240,9 +239,8 @@ def typeof(node: Node, context: Context):
                         raise TypeError("Parameter type mismatch")
                 case _: raise TypeError("First term of abstraction should be arrow type")
         case TypeAbsNode(name, body):
-            context.add_binding(name, TyVarBinding())
-            body_ty = typeof(body, context)
-            context.pop_binding()
+            with context.scoped_add(name, TyVarBinding()):
+                body_ty = typeof(body, context)
             return UnivTy(name, body_ty)
         case TypeAppNode(body, ty):
             body_ty = typeof(body, context)
@@ -262,11 +260,9 @@ def typeof(node: Node, context: Context):
             init_ty = typeof(init, context)
             if not isinstance(init_ty, ExisTy):
                 raise TypeError("Unpack needs existential type, got", init_ty)
-            context.add_binding(tyname, TyVarBinding())
-            context.add_binding(varname, VarBinding(init_ty.body))
-            body_ty = typeof(body, context)
-            context.pop_binding()
-            context.pop_binding()
+            with context.scoped_add(tyname, TyVarBinding()),\
+                 context.scoped_add(varname, VarBinding(init_ty.body)):
+                body_ty = typeof(body, context)
             return type_shift(body_ty, -2)
 
     raise Exception(f"Unknown node {node}")
