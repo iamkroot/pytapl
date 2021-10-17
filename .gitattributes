@@ -1,0 +1,2 @@
+# .f files are custom syntax for lambda calculus, but github thinks it is fortran
+*.f -linguist-detectable
