@@ -3,7 +3,7 @@ start: (command ";")*
 ?command: term
         | VARNAME ":" type                                   -> bind
 
-?term: "lambda" VARNAME (":" type)? "." term                 -> abs
+?term: "lambda" VARNAME ":" type "." term                    -> abs
      | "let" VARNAME "=" term "in" term                      -> let
      | "if" term "then" term "else" term                     -> if_stmt
      | "lambda" TYPENAME "." term                            -> type_abs

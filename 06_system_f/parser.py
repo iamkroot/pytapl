@@ -66,12 +66,6 @@ def parse_node(tree: str | Tree, context: Context) -> Node:
             node = AbsNode(name, ty, parse_node(body, context))
             context.pop_binding()
             return node
-        case Tree(data="abs", children=[name, body]):  # no type
-            assert isinstance(name, Token)
-            context.add_binding(name, Binding())
-            node = AbsNode(name, None, parse_node(body, context))
-            context.pop_binding()
-            return node
         case Tree(data="let", children=[name, init, body]):
             assert isinstance(name, Token)
             init_node = parse_node(init, context)

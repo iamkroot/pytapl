@@ -1,6 +1,5 @@
 import abc
 from dataclasses import dataclass
-from typing import Optional
 
 from lark.lexer import Token
 
@@ -29,7 +28,7 @@ class VarNode(Node):
 @dataclass
 class AbsNode(Node):
     orig_name: str
-    ty: Optional["Ty"]
+    ty: "Ty"
     body: Node
 
 
