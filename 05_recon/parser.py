@@ -32,9 +32,23 @@ class TypeTransformer(Transformer):
 
 def _num_to_church(num: int):
     assert num >= 0
-    if num == 0:
-        return ZeroNode()
-    return SuccNode(_num_to_church(num - 1))
+    node = ZeroNode()
+    while num > 0:
+        node = SuccNode(node)
+        num -= 1
+    return node
+
+
+def _church_to_num(node:Node):
+    num = 0
+    while True:
+        match node:
+            case SuccNode(val):
+                num += 1
+                node = val
+            case ZeroNode():
+                return num
+            case _: raise TypeError("Expected Succ/Zero Node")
 
 
 def parse_tree(tree: str | Tree, context: Context) -> Node:
@@ -122,5 +136,7 @@ if __name__ == '__main__':
         let a = true in let b = false in a;
 
         let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in let f5 = lambda y. f4(f4 y) in f5 (lambda z. z);
+        succ (pred 0);
+
         """)
     print(*t, sep="\n\n")

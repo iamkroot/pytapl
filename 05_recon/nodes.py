@@ -66,12 +66,23 @@ class BindNode(Node):
 
 @dataclass
 class ZeroNode(Node):
-    pass
+    def __str__(self) -> str:
+        return "0"
+    __repr__ = __str__
 
 
 @dataclass
 class SuccNode(Node):
     val: Node
+
+    def __str__(self) -> str:
+        from parser import _church_to_num
+        try:
+            return str(_church_to_num(self))
+        except TypeError:
+            return f"SuccNode(val={self.val})"
+
+    __repr__ = __str__
 
 
 @dataclass
