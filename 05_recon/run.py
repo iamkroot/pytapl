@@ -315,10 +315,26 @@ def main():
         (lambda x:X. lambda y:X->X. y x);
         (lambda x:X->X. x 0) (lambda y:Nat. y);
         lambda z:ZZ. lambda y:YY. z (y true);
-        let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in double (lambda x:Nat. succ (succ x)) 2;
+        let double = lambda f:Nat->Nat. lambda a:Nat. f(f(a)) in
+          double (lambda x:Nat. succ (succ x)) 2;
         let a = true in let b = false in if a then a else a;
+
         let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in f1 true;
-        # let f0 = lambda x. (x,x) in let f1 = lambda y. f0(f0 y) in let f2 = lambda y. f1(f1 y) in let f3 = lambda y. f2(f2 y) in let f4 = lambda y. f3(f3 y) in f4 (lambda z. z);
+
+        # let f0 = lambda x. (x,x) in
+        #  let f1 = lambda y. f0(f0 y) in 
+        #   let f2 = lambda y. f1(f1 y) in
+        #    let f3 = lambda y. f2(f2 y) in
+        #     let f4 = lambda y. f3(f3 y) in
+        #      f4 (lambda z. z);
+
+        let double = lambda f. lambda a. f(f(a)) in
+          let m = double (lambda x:Nat. succ (succ x)) 2 in
+          let n = double (lambda x:Bool. if x then false else true) true in
+          if n then iszero(m) else n;
+
+        let double = lambda f. lambda a. f(f(a)) in
+          double (double (double (lambda x: Nat. succ x))) 0;
         """)
     ctx = Context()
     constraints = []
