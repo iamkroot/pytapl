@@ -7,7 +7,7 @@ from lark.tree import Tree
 from lark.visitors import Transformer
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
                    IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, TupleNode, TupleTy, Ty,
-                   VarBinding, VarNode, ZeroNode)
+                   VarBinding, VarNode, ZeroNode, uvargen)
 
 with open("grammar.lark") as f:
     grammar = f.read()
@@ -116,7 +116,7 @@ p = Lark(grammar, propagate_positions=True)
 def parse(data: str):
     tree = p.parse(data)
     tree = TypeTransformer().transform(tree)
-    context = Context()
+    context = Context(uvargen())
     return [parse_tree(child, context) for child in tree.children]
 
 

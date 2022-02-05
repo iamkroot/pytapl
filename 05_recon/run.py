@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from itertools import count
-from typing import Callable, Generator, cast
+from typing import Callable, Generator, Iterable, cast
 
 from parser import parse
 
 from context import Context
 from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
-                   IsZeroNode, LetNode, NatTy, Node, PredNode, SuccNode, TrueNode, TupleNode, TupleTy,
-                   Ty, VarBinding, VarNode, ZeroNode)
+                   IsZeroNode, LetNode, NatTy, Node, PredNode, SchemeBinding, SuccNode, TrueNode, TupleNode, TupleTy,
+                   Ty, VarBinding, VarNode, ZeroNode, type_map)
 
 
 class NoRuleApplies(Exception):
@@ -148,7 +148,7 @@ class TypeSubst:
     tgt: Ty
 
     def __repr__(self) -> str:
-        return f"{self.src.name}->>{self.tgt}"
+        return f"{self.src.name}↦{self.tgt}"
 
     __str__ = __repr__
 
@@ -178,8 +178,20 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
         case LetNode(name, init, body) if is_val(init):
             return recon(subst_top(init, body), context, constraints, vargen)
         case LetNode(name, init, body):
-            init_ty = recon(init, context, constraints, vargen)
-            context.add_binding(name, VarBinding(init_ty))
+            init_constr = []
+            init_ty = recon(init, context, init_constr, vargen)
+            init_substs = unify(init_constr)
+            init_ty = apply_substs_to_ty(init_ty, init_substs)
+            subst_in_context(context, init_substs)
+            scheme_vars = []
+            def generalize(id_ty: IdTy):
+                if not context.has_typevar(id_ty):
+                    scheme_vars.append(id_ty)
+                return id_ty
+            # walk through tree to collect all type variables
+            type_map(generalize, init_ty)
+
+            context.add_binding(name, SchemeBinding(tuple(scheme_vars), init_ty))
             body_ty = recon(body, context, constraints, vargen)
             context.pop_binding()
             return body_ty
@@ -229,6 +241,37 @@ def subst_in_constr(constraints: list[EqConstraint], subst: TypeSubst):
         constr.rhs = subst_in_type(constr.rhs, subst)
 
 
+def apply_substs_to_ty(ty: Ty, substs: Iterable[TypeSubst]):
+    prev_ty = None
+    # Is there a better way? Yes: Use DSU algo
+    while ty != prev_ty:
+        prev_ty = ty
+        for subst in substs:
+            ty = subst_in_type(ty, subst)
+    return ty
+
+def apply_substs_to_binding(binding: Binding, substs: list[TypeSubst]):
+    match binding:
+        case VarBinding(ty):
+            return VarBinding(apply_substs_to_ty(ty, substs))
+        case SchemeBinding(ty_vars, body_ty):
+            # The substitutions shouldn't be present in variables
+            # since variables should range over all possible types
+            # We made a mistake elsewhere
+            assert all(subst.src not in ty_vars for subst in substs)
+            return SchemeBinding(ty_vars, apply_substs_to_ty(body_ty, substs))
+        case Binding():
+            return binding
+
+
+def subst_in_context(context: Context, substs: list[TypeSubst]):
+    """Apply substitutions"""
+    bindings = Context(context.vargen)
+    for elem in context.data:
+        bindings.add_binding(elem.name, apply_substs_to_binding(elem.binding, substs))
+    context.data = bindings.data
+
+
 def occurs(ty1: IdTy, ty2: Ty) -> bool:
     if ty1 == ty2:
         return True
@@ -244,7 +287,7 @@ def occurs(ty1: IdTy, ty2: Ty) -> bool:
     raise Exception("Unreachable")
 
 
-def unify(constraints: list[EqConstraint]):
+def unify(constraints: list[EqConstraint]) -> list[TypeSubst]:
     if not constraints:
         return []
     constr = constraints.pop()
@@ -288,12 +331,7 @@ def run(cmd, context, constraints, vargen, mode="eval"):
         # print(*constraints, sep="\n", end="\n\n")
         substs = unify(constraints.copy())
         # print(substs)
-        prev_ty = None
-        # Is there a better way?
-        while ty != prev_ty:
-            prev_ty = ty
-            for subst in substs:
-                ty = subst_in_type(ty, subst)
+        ty = apply_substs_to_ty(ty, substs)
 
         print("Principal type:", ty, end="\n====\n\n")
 
@@ -335,10 +373,16 @@ def main():
 
         let double = lambda f. lambda a. f(f(a)) in
           double (double (double (lambda x: Nat. succ x))) 0;
+
+        lambda f:X3->X3. lambda x:X3. let g=f in g(x); 
+
+        (lambda f:X2->X2. lambda x:X2. let g=f in g(x))  # will fail on g(0)
+          (lambda x: Bool. if x then true else false)
+            (true); 
         """)
-    ctx = Context()
-    constraints = []
     vargen = uvargen()
+    ctx = Context(vargen)
+    constraints = []
     for cmd in cmds:
         run(cmd, ctx, constraints, vargen, "eval")
 
