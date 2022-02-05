@@ -101,7 +101,9 @@ def eval_(node: Node, context: Context) -> Node:
             return else_
         case IfNode(cond, then, else_):
             return IfNode(eval_(cond, context), then, else_)
-        case SuccNode(PredNode(body)) | PredNode(SuccNode(body)) if is_numval(body):
+        case SuccNode(PredNode(body)) if is_numval(body) and body != ZeroNode():
+            return body
+        case PredNode(SuccNode(body)) if is_numval(body):
             return body
         case PredNode(ZeroNode()):
             return ZeroNode()
@@ -298,6 +300,8 @@ def run(cmd, context, constraints, vargen, mode="eval"):
 
 def main():
     cmds = parse("""
+        succ (pred 0);
+
         (lambda a.(a))(true);
         lambda x:Bool. x;
          (lambda x:Bool->Bool. if x false then true else false) 
