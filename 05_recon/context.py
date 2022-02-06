@@ -49,7 +49,7 @@ class Context:
                 # instantiate
                 from run import apply_substs_to_ty
                 substs = map(lambda var: TypeSubst(var, next(self.vargen)), ty_vars)
-                return apply_substs_to_ty(body_ty, substs)
+                return apply_substs_to_ty(body_ty, list(substs))
 
         raise ValueError(f"Wrong binding for var {self.get_name(idx)} at {idx}")
 

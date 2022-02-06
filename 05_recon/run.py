@@ -1,13 +1,12 @@
-from dataclasses import dataclass
 from itertools import count
 from typing import Callable, Generator, Iterable, cast
 
 from parser import parse
 
 from context import Context
-from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, FalseNode, IdTy, IfNode,
+from nodes import (AbsNode, AppNode, ArrowTy, BindNode, Binding, BoolTy, EqConstraint, FalseNode, IdTy, IfNode,
                    IsZeroNode, LetNode, NatTy, Node, PredNode, SchemeBinding, SuccNode, TrueNode, TupleNode, TupleTy,
-                   Ty, VarBinding, VarNode, ZeroNode, type_map)
+                   Ty, TypeSubst, VarBinding, VarNode, ZeroNode, type_map)
 
 
 class NoRuleApplies(Exception):
@@ -131,28 +130,6 @@ def uvargen():
         yield IdTy(name=f"?X{n}")
 
 
-@dataclass
-class EqConstraint:
-    lhs: Ty
-    rhs: Ty
-
-    def __repr__(self) -> str:
-        return f"({self.lhs}=={self.rhs})"
-
-    __str__ = __repr__
-
-
-@dataclass
-class TypeSubst:
-    src: IdTy
-    tgt: Ty
-
-    def __repr__(self) -> str:
-        return f"{self.src.name}↦{self.tgt}"
-
-    __str__ = __repr__
-
-
 def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen: Generator[IdTy, None, None]):
     match node:
         case VarNode(idx, _):
@@ -241,7 +218,7 @@ def subst_in_constr(constraints: list[EqConstraint], subst: TypeSubst):
         constr.rhs = subst_in_type(constr.rhs, subst)
 
 
-def apply_substs_to_ty(ty: Ty, substs: Iterable[TypeSubst]):
+def apply_substs_to_ty(ty: Ty, substs: list[TypeSubst]):
     prev_ty = None
     # Is there a better way? Yes: Use DSU algo
     while ty != prev_ty:
@@ -298,7 +275,12 @@ def unify(constraints: list[EqConstraint]) -> list[TypeSubst]:
             assert isinstance(constr.lhs, IdTy)
             if occurs(constr.lhs, constr.rhs):
                 raise Exception("Circular constraints")
-            subst = TypeSubst(constr.lhs, constr.rhs)
+            match constr.rhs:
+                # if both sides are type vars, try to preserve the user-named types
+                case IdTy(rname) if rname.startswith("?"):
+                    subst = TypeSubst(constr.rhs, constr.lhs)
+                case _:
+                    subst = TypeSubst(constr.lhs, constr.rhs)
             subst_in_constr(constraints, subst)
             return unify(constraints) + [subst]
         case (_, IdTy(_)):
@@ -380,6 +362,7 @@ def main():
           (lambda x: Bool. if x then true else false)
             (true); 
         """)
+
     vargen = uvargen()
     ctx = Context(vargen)
     constraints = []
