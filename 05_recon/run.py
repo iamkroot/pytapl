@@ -157,6 +157,7 @@ def recon(node: Node, context: Context, constraints: list[EqConstraint], vargen:
         case LetNode(name, init, body):
             init_constr = []
             init_ty = recon(init, context, init_constr, vargen)
+            constraints.extend(init_constr)
             init_substs = unify(init_constr)
             init_ty = apply_substs_to_ty(init_ty, init_substs)
             subst_in_context(context, init_substs)
